@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Teacher Dashboard - Feedbacks</title>
+<style>
+  body {
+    font-family: sans-serif;
+    background: #000;
+    color: #fff;
+    margin: 0;
+    padding: 20px;
+  }
+  .container {
+    max-width: 800px;
+    margin: auto;
+    background: #111;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(255,255,255,0.1);
+    padding: 20px;
+    border: 1px solid #333;
+  }
+  h1 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #fff;
+  }
+
+  /* ส่วนแสดงสถิติ feedback */
+  .stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 30px;
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat .emoji {
+    font-size: 40px;
+    display: block;
+    margin-bottom: 10px;
+  }
+  .stat .count {
+    font-size: 24px;
+    font-weight: bold;
+    color: #fff;
+  }
+  .stat .label {
+    font-size: 14px;
+    color: #ccc;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #111;
+    border: 1px solid #444;
+  }
+  table thead th {
+    background: #222;
+    color: #fff;
+    padding: 10px;
+    text-align: left;
+    font-weight: normal;
+    border-bottom: 1px solid #444;
+  }
+  table tbody td {
+    padding: 10px;
+    border-bottom: 1px solid #444;
+    vertical-align: top;
+    color: #ddd;
+  }
+
+  .sentiment-positive {
+    color: #00FF00; /* เขียว */
+    font-weight: bold;
+  }
+  .sentiment-neutral {
+    color: #999;
+    font-weight: bold;
+  }
+  .sentiment-negative {
+    color: #FF4444; /* แดง */
+    font-weight: bold;
+  }
+
+  .loading, .error {
+    text-align: center;
+    margin-top: 50px;
+    color: #ccc;
+  }
+
+  /* Scrollbar style */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #000;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>รายการ Feedback จากนักเรียน</h1>
+  
+  <!-- ส่วนแสดงจำนวน Feedback แต่ละแบบ -->
+  <div class="stats">
+    <div class="stat">
+      <span class="emoji">😀</span>
+      <span class="count" id="positiveCount">0</span>
+      <div class="label">Positive</div>
+    </div>
+    <div class="stat">
+      <span class="emoji">😐</span>
+      <span class="count" id="neutralCount">0</span>
+      <div class="label">Neutral</div>
+    </div>
+    <div class="stat">
+      <span class="emoji">😞</span>
+      <span class="count" id="negativeCount">0</span>
+      <div class="label">Negative</div>
+    </div>
+  </div>
+
+  <div id="feedbackSection">
+    <div class="loading">กำลังโหลดข้อมูล...</div>
+  </div>
+</div>
+
+<script>
+  function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    return date.toLocaleString('th-TH', { 
+      year: 'numeric', month: 'long', day: 'numeric', 
+      hour: '2-digit', minute: '2-digit', second: '2-digit' 
+    });
+  }
+
+  async function loadFeedbacks() {
+    const feedbackSection = document.getElementById('feedbackSection');
+    feedbackSection.innerHTML = '<div class="loading">กำลังโหลดข้อมูล...</div>';
+
+    try {
+      const response = await fetch('/api/feedbacks');
+      if (!response.ok) {
+        throw new Error("Error fetching feedbacks");
+      }
+
+      const feedbacks = await response.json();
+
+      // นับจำนวนแต่ละ sentiment
+      let positiveCount = 0;
+      let neutralCount = 0;
+      let negativeCount = 0;
+
+      feedbacks.forEach(fb => {
+        const s = fb.sentiment.toLowerCase();
+        if (s === 'positive') positiveCount++;
+        else if (s === 'neutral') neutralCount++;
+        else if (s === 'negative') negativeCount++;
+      });
+
+      // อัปเดตตัวเลขสถิติ
+      document.getElementById('positiveCount').textContent = positiveCount;
+      document.getElementById('neutralCount').textContent = neutralCount;
+      document.getElementById('negativeCount').textContent = negativeCount;
+
+      if (feedbacks.length === 0) {
+        feedbackSection.innerHTML = '<div class="error">ยังไม่มี Feedback เข้ามา</div>';
+        return;
+      }
+
+      let tableHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Feedback</th>
+              <th>Sentiment</th>
+              <th>วันที่-เวลา</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      feedbacks.forEach(fb => {
+        let sentimentClass = '';
+        if (fb.sentiment.toLowerCase() === 'positive') {
+          sentimentClass = 'sentiment-positive';
+        } else if (fb.sentiment.toLowerCase() === 'neutral') {
+          sentimentClass = 'sentiment-neutral';
+        } else if (fb.sentiment.toLowerCase() === 'negative') {
+          sentimentClass = 'sentiment-negative';
+        }
+
+        tableHTML += `
+          <tr>
+            <td>${fb.id}</td>
+            <td>${fb.feedback_text}</td>
+            <td class="${sentimentClass}">${fb.sentiment}</td>
+            <td>${formatTimestamp(fb.timestamp)}</td>
+          </tr>
+        `;
+      });
+
+      tableHTML += `</tbody></table>`;
+      feedbackSection.innerHTML = tableHTML;
+
+    } catch (error) {
+      feedbackSection.innerHTML = '<div class="error">เกิดข้อผิดพลาดในการดึงข้อมูล</div>';
+      console.error(error);
+    }
+  }
+
+  loadFeedbacks();
+</script>
+</body>
+</html>

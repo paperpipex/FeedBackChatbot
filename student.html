@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Student Feedback Chatbot</title>
+<style>
+  body {
+    font-family: sans-serif;
+    background: #000;
+    color: #fff;
+    padding: 20px;
+  }
+  .chat-container {
+    max-width: 500px;
+    margin: auto;
+    background: #111;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(255,255,255,0.1);
+    overflow: hidden;
+    border: 1px solid #333;
+  }
+  .chat-header {
+    background: #222;
+    color: #fff;
+    padding: 10px;
+    font-size: 18px;
+    border-bottom: 1px solid #333;
+    text-align: center;
+  }
+  .chat-messages {
+    padding: 10px;
+    height: 300px;
+    overflow-y: auto;
+    background: #111;
+  }
+  .message {
+    margin-bottom: 10px;
+    line-height: 1.4;
+    border-radius: 4px;
+    padding: 8px;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+  }
+  .bot {
+    background: #222;
+    color: #fff;
+    text-align: left;
+  }
+  .user {
+    background: #444;
+    color: #fff;
+    text-align: right;
+  }
+  .chat-input {
+    display: flex;
+    border-top: 1px solid #333;
+    background: #111;
+  }
+  .chat-input input {
+    flex: 1;
+    border: none;
+    padding: 10px;
+    font-size: 14px;
+    background: #000;
+    color: #fff;
+  }
+  .chat-input button {
+    background: #333;
+    color: #fff;
+    border: none;
+    padding: 0 20px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.3s;
+  }
+  .chat-input button:hover {
+    background: #555;
+  }
+  .chat-input input:focus {
+    outline: none;
+  }
+
+  /* Scrollbar style */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #000;
+  }
+</style>
+</head>
+<body>
+<div class="chat-container">
+  <div class="chat-header">
+    Student Feedback Chatbot
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input">
+    <input type="text" id="inputMessage" placeholder="พิมพ์ feedback ของคุณที่นี่..." />
+    <button id="sendBtn">Send</button>
+  </div>
+</div>
+
+<script>
+  const chatMessages = document.getElementById('chatMessages');
+  const inputMessage = document.getElementById('inputMessage');
+  const sendBtn = document.getElementById('sendBtn');
+
+  let step = 0;
+  let userFeedback = "";
+
+  function addMessage(text, sender='bot') {
+    const msgDiv = document.createElement('div');
+    msgDiv.classList.add('message', sender);
+    msgDiv.textContent = text;
+    chatMessages.appendChild(msgDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  addMessage("สวัสดี! กรุณาบอกความรู้สึกหรือ feedback ของคุณเกี่ยวกับการสอนครั้งนี้หน่อยค่ะ 😃");
+
+  async function sendFeedback(feedback) {
+    const response = await fetch('/api/feedbacks', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ feedback_text: feedback })
+    });
+    return await response.json();
+  }
+
+  sendBtn.addEventListener('click', async () => {
+    const text = inputMessage.value.trim();
+    if (text.length === 0) return;
+    inputMessage.value = '';
+
+    addMessage(text, 'user');
+
+    if (step === 0) {
+      userFeedback = text;
+      addMessage("กำลังวิเคราะห์ Feedback ของคุณ กรุณารอสักครู่... ⏳");
+      try {
+        const result = await sendFeedback(userFeedback);
+        if (result.error) {
+          addMessage("เกิดข้อผิดพลาดในการวิเคราะห์ กรุณาลองใหม่ภายหลัง");
+        } else {
+          addMessage("ขอบคุณสำหรับ Feedback ของคุณ!");
+          addMessage("Feedback ของคุณได้ถูกส่งไปให้อาจารย์แล้ว 📩");
+          addMessage("ระบบประเมินผลว่า feedback ของคุณเป็น: " + result.sentiment);
+        }
+      } catch (error) {
+        addMessage("เกิดข้อผิดพลาดในการวิเคราะห์ กรุณาลองใหม่ภายหลัง");
+      }
+    }
+
+    step++;
+  });
+
+  inputMessage.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      sendBtn.click();
+    }
+  });
+</script>
+</body>
+</html>
